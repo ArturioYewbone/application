@@ -145,12 +145,7 @@ public class Input extends AppCompatActivity {
         savedLogin = log.getText().toString();
         savedPassword = pas.getText().toString();
         if(!(Objects.equals(savedLogin, "") || Objects.equals(savedPassword, ""))) {
-            if(!(checkLogPas())){
-                if(createNewLog){
-
-                    createNewLog = false;
-                }
-            }
+            messenger.sendMessage("input "+ savedLogin + " " + savedPassword);
         }else{
             createMsgbox("Не все поля заполнены.", false);
         }
@@ -286,15 +281,11 @@ public class Input extends AppCompatActivity {
 //            v.setSelected(false);
 //        }
     }
-    // Отправка команды
-    public void sendMessage(Message msg) {
-        messenger.sendMessage("привет");
-    }
     private class IncomingHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
-            String text = msg.getData().getString("msg");
-            Log.d("ddw", text);
+            String text = msg.getData().getString("message");
+            Log.d("ddw", "input.java" + text);
             switch (text){
                 case "falselog":
                     break;
