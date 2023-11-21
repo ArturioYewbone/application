@@ -23,11 +23,23 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.UnknownHostException;
 
-public class SocketService extends Service{
+public class SocketService extends Service implements IMessenger{
     private SocketOne socketOne;
     private SocketThread socketThread;
-    private Messenger messenger = new Messenger(new IncomingHandler());
+    private final Messenger messenger = new Messenger(new IncomingHandler());
 
+    @Override
+    public void sendMessage(String message) {
+        Message msg = Message.obtain();
+        Bundle bundle = new Bundle();
+        bundle.putString("message", message);
+        msg.setData(bundle);
+        try {
+            messenger.send(msg);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+        }
+    }
 
     @Override
     public void onCreate() {
@@ -38,10 +50,10 @@ public class SocketService extends Service{
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        messenger = intent.getParcelableExtra("messenger");
-        if(messenger == null){
-            Log.d("ddw", "mes null");
-        }else{Log.d("ddw", "mes suc");}
+//        messenger = intent.getParcelableExtra("messenger");
+//        if(messenger == null){
+//            Log.d("ddw", "mes null");
+//        }else{Log.d("ddw", "mes suc");}
         socketThread = new SocketThread();
         socketThread.start();
         return START_STICKY;
@@ -55,30 +67,17 @@ public class SocketService extends Service{
     public int getCommand() {
         return COMMAND;
     }
-    class IncomingHandler extends Handler {
+    private static class IncomingHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case COMMAND:
-                    String command = msg.getData().getString("command");
-                    String data = msg.getData().getString("data");
-                    Log.d("ddw", "command:" + command);
-                    String response = sendCommand(command, data);
-
-                    // Отправляем ответ обратно в Activity
-                    Message reply = Message.obtain(null, COMMAND, 0, 0);
-                    Bundle bundle = new Bundle();
-                    bundle.putString("response", response);
-                    reply.setData(bundle);
-                    try {
-                        msg.replyTo.send(reply);
-                    } catch (RemoteException e) {
-                        e.printStackTrace();
-                    }
-                    break;
-                default:
-                    Log.d("ddw", "ошибка в handler в service");
-                    break;
+            String recvMessage = msg.getData().getString("message");
+            Log.d("ddw", recvMessage);
+            if (recvMessage.equals("sadas")) {
+                Message sendMsg = Message.obtain();
+                Bundle bundle = new Bundle();
+                bundle.putString("msg", "и тебе привет");
+                sendMsg.setData(bundle);
+                sendMessage(sendMsg);
             }
         }
     }

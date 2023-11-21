@@ -35,7 +35,8 @@ import java.security.spec.ECField;
 import java.util.Objects;
 
 public class Input extends AppCompatActivity {
-    private Messenger messenger;
+    IMessenger messenger;
+    private Handler handler = new Handler();
     private boolean isBound;
     private static final int COMMAND = 1;
 
@@ -51,21 +52,8 @@ public class Input extends AppCompatActivity {
     Intent servInt;
     String command;
     Socket socket;
-    //MyThread soc;
     private static final long INTERVAL = 15 * 60 * 1000; // 15 минут в миллисекундах
-    private ServiceConnection serviceConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            messenger = new Messenger(service);
-            isBound = true;
-        }
 
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            messenger = null;
-            isBound = false;
-        }
-    };
 
     @SuppressLint("ClickableViewAccessibility")
     @Override
@@ -93,65 +81,27 @@ public class Input extends AppCompatActivity {
                 }
             });
             Log.d("ddw","запуск сокета");
-
             Intent intent = new Intent(this, SocketService.class);
-            messenger = new Messenger(new IncomingHandler());
-            intent.putExtra("messenger", messenger);
-
             startService(intent);
+            messenger = new SocketService();
 
-            //bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
-            sendCommand(intent);
-            //sendCommand();
-//            Thread s = new Thread(socketThread);
-//            s.start();
-//            soc = new SocketOne();
-//            soc.connect();
-            //soc = new MyThread("");
-            //Log.d("ddw","запуск потока");
-            //soc.run();
-            //Log.d("ddw","запущен поток");
-            //while(!("suc".equals(soc.getResul())||"er".equals(soc.getResul()))){}
-           // Log.d("ddw","после цикла");
-//            if(!(soc.connect())){
-//                createMsgbox("Сервер не доступен, попробуйте позже", false);
-//                Button b = findViewById(R.id.input);
-//                b.setEnabled(false);
-//                soc.disconnect();
-//                return;
-//            }
-            // Получение объекта SharedPreferences
+
             sharedPreferences = getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
             // Попытка получения сохраненного логина и пароля
             savedLogin = sharedPreferences.getString("login", null);
             savedPassword = sharedPreferences.getString("password", null);
             Log.d("ddw", savedLogin+":"+savedPassword);
-            //servInt = new Intent(this, SocketService.class);
             if (savedLogin != null && savedPassword != null) {
                 // Автоматически заполните поля ввода
                 if(false){
                     log.setText(savedLogin);
                     pas.setText(savedPassword);
-                    checkLogPas();
+                    messenger.sendMessage("input "+ savedLogin + " " + savedPassword);
                 }
-
-
-                //servInt.putExtra("log", savedLogin);
-                //startService(servInt);
-//            Thread thread = new Thread(socketThread);
-//            thread.start();
-                //OpenMain();
             }
         }catch (Exception e){
             Log.d("ddw", e.getMessage());
         }
-
-        //servInt.putExtra("log", savedLogin);
-        //startService(servInt);
-//        PendingIntent pendingIntent = PendingIntent.getService(this, 0, servInt, PendingIntent.FLAG_UPDATE_CURRENT);
-//        AlarmManager alarmManager = (AlarmManager) getSystemService(ALARM_SERVICE);
-//        long interval = 15 * 60 * 1000; // интервал в миллисекундах (например, 15 минут)
-//        alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, System.currentTimeMillis(), interval, pendingIntent);
     }
     private boolean checkLogPas(){
 //        soc.UpdateData(savedLogin+ " " + savedPassword);
@@ -189,10 +139,6 @@ public class Input extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (isBound) {
-            unbindService(serviceConnection);
-            isBound = false;
-        }
     }
 
     public void ClickB(View v){
@@ -201,33 +147,10 @@ public class Input extends AppCompatActivity {
         if(!(Objects.equals(savedLogin, "") || Objects.equals(savedPassword, ""))) {
             if(!(checkLogPas())){
                 if(createNewLog){
-//                    soc.UpdateData(savedLogin+ " " + savedPassword);
-//                    soc.UpdateCommand("createnewlog");
 
                     createNewLog = false;
-                    //while (true){
-                        //if("createlogsuc".equals(soc.getResul()))
-                    //String s = soc.command("createnewlog", savedLogin+ " " + savedPassword);
-//                        if(s.equals("createlogsuc")){
-//                            SavePas(sharedPreferences.edit());
-//                            OpenMain();
-//                            //break;
-//                        }else if ("createloger".equals(s)){
-//                            createMsgbox("Произошла ошибка при создании нового пользоавтеля", false);
-//                            //break;
-//                        }
-                    //}
                 }
             }
-            //AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-            //Intent intent = new Intent(this, SocketService.class);
-            //startService(intent);
-            //PendingIntent pendingIntent = PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
-            //long triggerTime = System.currentTimeMillis();
-            //alarmManager.setRepeating(AlarmManager.RTC_WAKEUP, triggerTime, INTERVAL, pendingIntent);
-
-//            Thread thread = new Thread(socketThread);
-//            thread.start();
         }else{
             createMsgbox("Не все поля заполнены.", false);
         }
@@ -267,7 +190,6 @@ public class Input extends AppCompatActivity {
     }
     private void OpenMain(){
         Intent intent = new Intent(this, MainActivity.class);
-        //Intent in = new Intent(Input.this, MainActivity.class);
         intent.putExtra("log", savedLogin);
         startActivity(intent);
     }
@@ -365,38 +287,18 @@ public class Input extends AppCompatActivity {
 //        }
     }
     // Отправка команды
-    public void sendCommand(Intent intent) {
-        try{
-        // Получить Messenger из Service
-        Messenger serviceMessenger = intent.getParcelableExtra("messenger");
-
-// Создать Message
-        Message msg = Message.obtain(null, 1);
-        Bundle bundle = new Bundle();
-        bundle.putString("command", "send");
-        bundle.putString("data", "Hello");
-        msg.setData(bundle);
-
-            // Отправить Message в Service через Messenger
-            serviceMessenger.send(msg);
-        }catch (Exception e){
-            Log.d("ddw", e.getMessage());
-        }
-
-
-
+    public void sendMessage(Message msg) {
+        messenger.sendMessage("привет");
     }
     private class IncomingHandler extends Handler {
         @Override
         public void handleMessage(Message msg) {
-            switch (msg.what) {
-                case 1:
-                    String response = msg.getData().getString("response");
-                    Log.d("ddw", response);
-                    // Обработка ответа
+            String text = msg.getData().getString("msg");
+            Log.d("ddw", text);
+            switch (text){
+                case "falselog":
                     break;
                 default:
-                    Log.d("ddw", "ошибка в handler в инпут");
                     break;
             }
         }
