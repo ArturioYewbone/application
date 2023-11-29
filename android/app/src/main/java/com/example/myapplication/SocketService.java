@@ -23,18 +23,19 @@ import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.UnknownHostException;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Exchanger;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+
 
 public class SocketService extends Service implements IMessenger{
     private SocketOne socketOne;
     private SocketThread socketThread;
+    String in = null;
+    String out = null;
     private final Messenger messenger = new Messenger(new IncomingHandler());
-    private String cmd;
-    private String data;
-    private String resp;
-    private final Object lock = new Object();
-    Exchanger<String> exchanger;
-
+    dataString dString = new dataString();
 
     @Override
     public void sendMessage(String message) {
@@ -58,7 +59,6 @@ public class SocketService extends Service implements IMessenger{
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        exchanger = new Exchanger<>();
         socketThread = new SocketThread();
         socketThread.start();
         return START_STICKY;
@@ -72,23 +72,27 @@ public class SocketService extends Service implements IMessenger{
         @Override
         public void handleMessage(Message msg) {
             try {
-                String recvMessage = msg.getData().getString("message");
-                String[] mas = recvMessage.split(" ");
-                Log.d("ddw","прием в сервисе:"  + recvMessage);
-                setCmd(mas[0]);
-                if (getCmd().equals("input")) {
-                    setData(mas[1] + " " + mas[2]);
-                    while (getResp() == null){};
-                    Log.d("ddw", "ответ от сервера в сервисе" + getResp());
+                synchronized (dString){
+                    in = msg.getData().getString("message");
+                    Log.d("ddw","прием в сервисе:"  + in);
+                    dString.setString(in);
+                    Log.d("ddw","данные записали");
+                    dString.notify();
+                    dString.wait();
+                    out = dString.getString();
+                    String cmd;
+                    String data;
+                    Log.d("ddw", "ответ от сервера в сервисе " + out);
                     Message sendMsg = Message.obtain();
                     Bundle bundle = new Bundle();
-                    bundle.putString("msg", getResp());
+                    bundle.putString("msg", out);
                     sendMsg.setData(bundle);
                     sendMessage(sendMsg);
-                    setResp(null);
                 }
+
+
             }catch (Exception e){
-                Log.d("ddw", e.getMessage());
+                Log.d("ddw","mesenger: " + e.getMessage());
             }
         }
     }
@@ -99,6 +103,7 @@ public class SocketService extends Service implements IMessenger{
     }
 
     private class SocketThread extends Thread {
+
         @Override
         public void run() {
             if (socketOne.connect()) {
@@ -106,27 +111,30 @@ public class SocketService extends Service implements IMessenger{
             } else {
                 Log.d("ddw", "Socket connection failed");
             }
+            String cmd;
+            String data;
+            //String resp;
             while(!isInterrupted()){
-                synchronized(lock) {
-                    while (getData() == null) {
-                        try {
-                            lock.wait();
-                        } catch (InterruptedException e) {
+                try {
+                    synchronized (dString) {
+                        Log.d("ddw","в ожидании");
+                        dString.wait();
+                        TimeUnit.SECONDS.sleep(1);
+                        cmd = dString.getString();
+                        Log.d("ddw", "данные в потоке перед отправкой:" + cmd);
+                        switch (in) {
+                            case "input":
+                                out = socketOne.command(in, in);
+                                cmd = null;
+                                data= null;
+                                in = null;
+                                break;
+                            default:
+                                break;
                         }
                     }
-                    Log.d("ddw", "данные в потоке перед отправкой:" + data);
-
-                    switch (getCmd()) {
-                        case "input":
-                            setResp(socketOne.command(getCmd(), getData()));
-                            setCmd(null);
-                            setData(null);
-                            synchronized(lock) {
-                                lock.notify();
-                            }
-                            break;
-                    }
-
+                }catch (Exception e){
+                    Log.d("ddw", "socket: " + e.getMessage());
                 }
             }
             // Выполнение действий при прерывании
@@ -135,39 +143,17 @@ public class SocketService extends Service implements IMessenger{
 
         }
     }
+
     public String sendCommand(String command, String data) {
         return socketOne.command(command, data);
     }
-    //region синхронизация
-    public synchronized void setCmd(String cmd) {
-        synchronized (lock) {
-            this.cmd = cmd;
-        }
+}
+class dataString{
+    private String dataString;
+    public synchronized void setString(String data) {
+        this.dataString = data;
     }
-    public synchronized String getCmd() {
-        synchronized (lock) {
-            return cmd;
-        }
+    public synchronized String getString() {
+        return dataString;
     }
-    public synchronized void setData(String data) {
-        synchronized (lock) {
-            this.data = data;
-        }
-    }
-    public synchronized String getData() {
-        synchronized (lock) {
-            return data;
-        }
-    }
-    public synchronized void setResp(String resp) {
-        synchronized (lock) {
-            this.resp = resp;
-        }
-    }
-    public synchronized String getResp() {
-        synchronized (lock) {
-            return resp;
-        }
-    }
-    //endregion
 }
