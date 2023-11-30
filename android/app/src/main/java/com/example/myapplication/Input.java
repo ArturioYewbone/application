@@ -62,6 +62,7 @@ public class Input extends AppCompatActivity implements ResponseCallback{
         public void onServiceConnected(ComponentName name, IBinder service) {
             CommandService.LocalBinder binder = (CommandService.LocalBinder) service;
             mService = binder.getService();
+            mService.setResponseCallback(Input.this);
             Log.d("ddw", "сервис подключен");
             mBound = true;
         }
@@ -72,7 +73,6 @@ public class Input extends AppCompatActivity implements ResponseCallback{
         }
     };
 
-   // @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -101,9 +101,6 @@ public class Input extends AppCompatActivity implements ResponseCallback{
             Intent intent = new Intent(this, CommandService.class);
             bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
             startService(intent);
-            //messenger = new SocketService();
-
-
             sharedPreferences = getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
             // Попытка получения сохраненного логина и пароля
             savedLogin = sharedPreferences.getString("login", null);
@@ -121,80 +118,54 @@ public class Input extends AppCompatActivity implements ResponseCallback{
             Log.d("ddw", e.getMessage());
         }
     }
-    private boolean checkLogPas(){
-//        soc.UpdateData(savedLogin+ " " + savedPassword);
-//        soc.UpdateCommand("input");
-//        String s = soc.command("input", savedLogin+ " " + savedPassword);
-//        switch (s){
-//            case "true":
-//                SavePas(sharedPreferences.edit());
-//                OpenMain();
-//                return true;
-//            case "falselog":
-//                createMsgbox("Пользователь не найден. Вы хотите создать нового?", true);
-//                return false;
-//            case "falsepas":
-//                createMsgbox("Неверный пароль", false);
-//                return false;
-//            default:
-//                return false;
-//        }
-//        while(true){
-//            if("true".equals(soc.getResul())){
-//                SavePas(sharedPreferences.edit());
-//                OpenMain();
-//                return true;
-//            } else if ("falselog".equals(soc.getResul())) {
-//                createMsgbox("Пользователь не найден. Вы хотите создать нового?", true);
-//                return false;
-//            } else if ("falsepas".equals(soc.getResul())) {
-//                createMsgbox("Неверный пароль", false);
-//                return false;
-//            }
-//        }
-        return false;
-    }
     @Override
     protected void onDestroy() {
         super.onDestroy();
         if (mBound) {
+            sendCommandToService("quit");
             unbindService(mConnection);
             mBound = false;
         }
     }
-    public void sendCommandToService(View view) {
+    public void sendCommandToService(String s) {
         if (mBound) {
-            // Пример отправки команды из активити в сервис
-            mService.sendCommand("Your command here");
+            // отправки команды из активити в сервис
+            mService.sendCommand(s);
         }
     }
 
     @Override
     public void onResponseReceived(String response) {
         Log.d("ddw", "Response from server received in activity: " + response);
-
         // Обработка полученного ответа от сервера в активити
-        // Здесь вы можете обновить пользовательский интерфейс или выполнить другие действия с ответом от сервера
+        if(response.equals("true")){
+            SavePas(sharedPreferences.edit());
+            OpenMain();
+        }else if(response.equals("falselog")){
+            createNewLog = true;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    createMsgbox("Пользователь не найден. Вы хотите создать нового?", true);
+                }
+            });
+        }
     }
     public void ClickB(View v){
         savedLogin = log.getText().toString();
         savedPassword = pas.getText().toString();
         if(!(Objects.equals(savedLogin, "") || Objects.equals(savedPassword, ""))) {
-            if (mBound) {
-                // Пример отправки команды из активити в сервис
-                Log.d("ddw", savedLogin + " " + savedPassword);
-                mService.sendCommand("input " + savedLogin + " " + savedPassword);
-            }
-            //messenger.sendMessage("input "+ savedLogin + " " + savedPassword);
+            sendCommandToService("input " + savedLogin + " " + savedPassword);
         }else{
             createMsgbox("Не все поля заполнены.", false);
         }
     }
-    private void createMsgbox(String s, boolean No){
 
+    private void createMsgbox(String s, boolean No){
+        log("создание сообщения");
         // Создание диалогового окна
         AlertDialog.Builder builder = new AlertDialog.Builder(Input.this);
-        //builder.setTitle("");
+        builder.setTitle("");
         builder.setMessage(s);
         // Кнопка "OK" для закрытия диалогового окна
         String ok = "OK";
@@ -204,24 +175,26 @@ public class Input extends AppCompatActivity implements ResponseCallback{
             builder.setNegativeButton("Нет", new DialogInterface.OnClickListener() {
                 @Override
                 public void onClick(DialogInterface dialog, int which) {
-
                     // Действия при нажатии "Нет"
                     dialog.dismiss(); // Закрыть диалоговое окно
-                    wait = false;
                 }
             });
         }
+
         builder.setPositiveButton(ok, new DialogInterface.OnClickListener() {
             @Override
             public void onClick(DialogInterface dialog, int which) {
-                createNewLog = true;
+                if(createNewLog == true){
+                    sendCommandToService("createnewlog " + savedLogin + " " + savedPassword);
+                    createNewLog = false;
+                }
                 dialog.dismiss(); // Закрыть диалоговое окно
-                wait = false;
             }
         });
         // Показать диалоговое окно
         AlertDialog dialog = builder.create();
         dialog.show();
+
     }
     private void OpenMain(){
         Intent intent = new Intent(this, MainActivity.class);
@@ -321,17 +294,7 @@ public class Input extends AppCompatActivity implements ResponseCallback{
 //            v.setSelected(false);
 //        }
     }
-    private class IncomingHandler extends Handler {
-        @Override
-        public void handleMessage(Message msg) {
-            String text = msg.getData().getString("message");
-            Log.d("ddw", "input.java" + text);
-            switch (text){
-                case "falselog":
-                    break;
-                default:
-                    break;
-            }
-        }
+    private void log(String s){
+        Log.d("ddw", s);
     }
 }

@@ -5,9 +5,14 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 import android.util.Log;
+
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -17,8 +22,8 @@ public class CommandService extends Service {
     private static final String SERVER_IP = "82.179.140.18"; // Замените на ваш IP сервера
     private static final int SERVER_PORT = 45127; // Замените на ваш порт сервера
     private Socket socket;
-    private InputStream inputStream;
-    private OutputStream outputStream;
+    private BufferedReader inputStream;
+    private BufferedWriter outputStream;
     private ExecutorService executorService = Executors.newSingleThreadExecutor();
     private ResponseCallback responseCallback;
     @Override
@@ -53,12 +58,10 @@ public class CommandService extends Service {
     private void connectToServer() throws IOException {
         try {
             socket = new Socket(SERVER_IP, SERVER_PORT);
-            inputStream = socket.getInputStream();
-            outputStream = socket.getOutputStream();
+            inputStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+            outputStream = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             Log.d("ddw", "Connected to server");
-            byte[] buffer = new byte[1024];
-            int bytesRead = inputStream.read(buffer);
-            String response = new String(buffer, 0, bytesRead);
+            String response = inputStream.readLine();
             Log.d("ddw", "Received response from server: " + response);
         }catch (Exception e){
             Log.d("ddw", "error create soc" + e.getMessage());
@@ -72,13 +75,11 @@ public class CommandService extends Service {
         executorService.execute(() -> {
             if (outputStream != null) {
                 try {
-                    outputStream.write(command.getBytes());
+                    outputStream.write(command);
                     outputStream.flush();
                     Log.d("ddw", "Sent command to server: " + command);
                     // Чтение ответа от сервера
-                    byte[] buffer = new byte[1024];
-                    int bytesRead = inputStream.read(buffer);
-                    String response = new String(buffer, 0, bytesRead);
+                    String response = inputStream.readLine();
                     Log.d("ddw", "Received response from server: " + response);
 
                     // Передаем ответ в активити через callback
@@ -94,6 +95,7 @@ public class CommandService extends Service {
 
     private void disconnectFromServer() {
         try {
+            sendCommand("quit");
             if (inputStream != null) inputStream.close();
             if (outputStream != null) outputStream.close();
             if (socket != null) socket.close();
