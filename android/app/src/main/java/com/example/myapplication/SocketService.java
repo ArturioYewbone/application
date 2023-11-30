@@ -24,6 +24,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.UnknownHostException;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Exchanger;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +37,7 @@ public class SocketService extends Service implements IMessenger{
     String out = null;
     private final Messenger messenger = new Messenger(new IncomingHandler());
     dataString dString = new dataString();
+    CountDownLatch latch = new CountDownLatch(1);
 
     @Override
     public void sendMessage(String message) {
@@ -72,13 +74,12 @@ public class SocketService extends Service implements IMessenger{
         @Override
         public void handleMessage(Message msg) {
             try {
-                synchronized (dString){
                     in = msg.getData().getString("message");
                     Log.d("ddw","прием в сервисе:"  + in);
                     dString.setString(in);
                     Log.d("ddw","данные записали");
-                    dString.notify();
-                    dString.wait();
+                    latch.countDown();
+                    latch.await();
                     out = dString.getString();
                     String cmd;
                     String data;
@@ -88,7 +89,7 @@ public class SocketService extends Service implements IMessenger{
                     bundle.putString("msg", out);
                     sendMsg.setData(bundle);
                     sendMessage(sendMsg);
-                }
+
 
 
             }catch (Exception e){
@@ -116,10 +117,11 @@ public class SocketService extends Service implements IMessenger{
             //String resp;
             while(!isInterrupted()){
                 try {
-                    synchronized (dString) {
+                    if (in == null){
                         Log.d("ddw","в ожидании");
-                        dString.wait();
-                        TimeUnit.SECONDS.sleep(1);
+                        latch.await();
+                    }else {
+
                         cmd = dString.getString();
                         Log.d("ddw", "данные в потоке перед отправкой:" + cmd);
                         switch (in) {
@@ -132,6 +134,7 @@ public class SocketService extends Service implements IMessenger{
                             default:
                                 break;
                         }
+                        latch.countDown();
                     }
                 }catch (Exception e){
                     Log.d("ddw", "socket: " + e.getMessage());
@@ -150,10 +153,10 @@ public class SocketService extends Service implements IMessenger{
 }
 class dataString{
     private String dataString;
-    public synchronized void setString(String data) {
+    public void setString(String data) {
         this.dataString = data;
     }
-    public synchronized String getString() {
+    public String getString() {
         return dataString;
     }
 }

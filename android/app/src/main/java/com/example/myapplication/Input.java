@@ -12,6 +12,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -82,7 +83,11 @@ public class Input extends AppCompatActivity {
             });
             Log.d("ddw","запуск сокета");
             Intent intent = new Intent(this, SocketService.class);
-            startService(intent);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            }else {
+                startService(intent);
+            }
             messenger = new SocketService();
 
 
