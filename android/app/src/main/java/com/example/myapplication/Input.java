@@ -35,7 +35,7 @@ import java.net.Socket;
 import java.security.spec.ECField;
 import java.util.Objects;
 
-public class Input extends AppCompatActivity {
+public class Input extends AppCompatActivity implements ResponseCallback{
     IMessenger messenger;
     private Handler handler = new Handler();
     private boolean isBound;
@@ -54,9 +54,25 @@ public class Input extends AppCompatActivity {
     String command;
     Socket socket;
     private static final long INTERVAL = 15 * 60 * 1000; // 15 минут в миллисекундах
+    private CommandService mService;
+    private boolean mBound = false;
 
+    private ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            CommandService.LocalBinder binder = (CommandService.LocalBinder) service;
+            mService = binder.getService();
+            Log.d("ddw", "сервис подключен");
+            mBound = true;
+        }
 
-    @SuppressLint("ClickableViewAccessibility")
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mBound = false;
+        }
+    };
+
+   // @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -82,20 +98,17 @@ public class Input extends AppCompatActivity {
                 }
             });
             Log.d("ddw","запуск сокета");
-            Intent intent = new Intent(this, SocketService.class);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent);
-            }else {
-                startService(intent);
-            }
-            messenger = new SocketService();
+            Intent intent = new Intent(this, CommandService.class);
+            bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+            startService(intent);
+            //messenger = new SocketService();
 
 
             sharedPreferences = getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
             // Попытка получения сохраненного логина и пароля
             savedLogin = sharedPreferences.getString("login", null);
             savedPassword = sharedPreferences.getString("password", null);
-            Log.d("ddw", savedLogin+":"+savedPassword);
+            //Log.d("ddw", savedLogin+":"+savedPassword);
             if (savedLogin != null && savedPassword != null) {
                 // Автоматически заполните поля ввода
                 if(false){
@@ -144,13 +157,35 @@ public class Input extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (mBound) {
+            unbindService(mConnection);
+            mBound = false;
+        }
+    }
+    public void sendCommandToService(View view) {
+        if (mBound) {
+            // Пример отправки команды из активити в сервис
+            mService.sendCommand("Your command here");
+        }
     }
 
+    @Override
+    public void onResponseReceived(String response) {
+        Log.d("ddw", "Response from server received in activity: " + response);
+
+        // Обработка полученного ответа от сервера в активити
+        // Здесь вы можете обновить пользовательский интерфейс или выполнить другие действия с ответом от сервера
+    }
     public void ClickB(View v){
         savedLogin = log.getText().toString();
         savedPassword = pas.getText().toString();
         if(!(Objects.equals(savedLogin, "") || Objects.equals(savedPassword, ""))) {
-            messenger.sendMessage("input "+ savedLogin + " " + savedPassword);
+            if (mBound) {
+                // Пример отправки команды из активити в сервис
+                Log.d("ddw", savedLogin + " " + savedPassword);
+                mService.sendCommand("input " + savedLogin + " " + savedPassword);
+            }
+            //messenger.sendMessage("input "+ savedLogin + " " + savedPassword);
         }else{
             createMsgbox("Не все поля заполнены.", false);
         }
