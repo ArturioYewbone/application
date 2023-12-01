@@ -4,25 +4,18 @@ package com.example.myapplication;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.annotation.SuppressLint;
-import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Message;
-import android.os.Messenger;
 import android.text.InputType;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 
@@ -32,27 +25,19 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.Socket;
-import java.security.spec.ECField;
 import java.util.Objects;
 
 public class Input extends AppCompatActivity implements ResponseCallback{
-    IMessenger messenger;
-    private Handler handler = new Handler();
-    private boolean isBound;
-    private static final int COMMAND = 1;
-
     private String ip = "82.179.140.18";
     private int port = 45127;
-    EditText log;
-    EditText pas;
-    String savedLogin;
-    String savedPassword;
+    private EditText log;
+    private EditText pas;
+    private String savedLogin;
+    private String savedPassword;
     boolean createNewLog = false;
     boolean wait;
-    SharedPreferences sharedPreferences;
-    Intent servInt;
-    String command;
-    Socket socket;
+    private SharedPreferences sharedPreferences;
+    private Socket socket;
     private static final long INTERVAL = 15 * 60 * 1000; // 15 минут в миллисекундах
     private CommandService mService;
     private boolean mBound = false;
@@ -97,21 +82,17 @@ public class Input extends AppCompatActivity implements ResponseCallback{
                     return false;
                 }
             });
-            Log.d("ddw","запуск сокета");
             Intent intent = new Intent(this, CommandService.class);
             bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
             startService(intent);
             sharedPreferences = getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
-            // Попытка получения сохраненного логина и пароля
-            savedLogin = sharedPreferences.getString("login", null);
+            savedLogin = sharedPreferences.getString("login", null);// Попытка получения сохраненного логина и пароля
             savedPassword = sharedPreferences.getString("password", null);
-            //Log.d("ddw", savedLogin+":"+savedPassword);
-            if (savedLogin != null && savedPassword != null) {
-                // Автоматически заполните поля ввода
+            if (savedLogin != null && savedPassword != null) {// Автоматически заполните поля ввода
                 if(false){
                     log.setText(savedLogin);
                     pas.setText(savedPassword);
-                    messenger.sendMessage("input "+ savedLogin + " " + savedPassword);
+                    openMain();
                 }
             }
         }catch (Exception e){
@@ -128,8 +109,7 @@ public class Input extends AppCompatActivity implements ResponseCallback{
         }
     }
     public void sendCommandToService(String s) {
-        if (mBound) {
-            // отправки команды из активити в сервис
+        if (mBound) {// отправки команды из активити в сервис
             mService.sendCommand(s);
         }
     }
@@ -137,21 +117,34 @@ public class Input extends AppCompatActivity implements ResponseCallback{
     @Override
     public void onResponseReceived(String response) {
         Log.d("ddw", "Response from server received in activity: " + response);
-        // Обработка полученного ответа от сервера в активити
-        if(response.equals("true")){
-            SavePas(sharedPreferences.edit());
-            OpenMain();
-        }else if(response.equals("falselog")){
-            createNewLog = true;
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    createMsgbox("Пользователь не найден. Вы хотите создать нового?", true);
-                }
-            });
+        switch (response) {// Обработка полученного ответа от сервера в активити
+            case "Сервер не отвечает, попробуйте позже":
+                createMsgbox(response, false);
+                break;
+            case "true":
+                SavePas(sharedPreferences.edit());
+                openMain();
+                break;
+            case "falselog":
+                createNewLog = true;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        createMsgbox("Пользователь не найден. Вы хотите создать нового?", true);
+                    }
+                });
+                break;
+            case "falsepas":
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        createMsgbox("Неверный пароль", false);
+                    }
+                });
+                break;
         }
     }
-    public void ClickB(View v){
+    public void clickB(View v){
         savedLogin = log.getText().toString();
         savedPassword = pas.getText().toString();
         if(!(Objects.equals(savedLogin, "") || Objects.equals(savedPassword, ""))) {
@@ -161,28 +154,22 @@ public class Input extends AppCompatActivity implements ResponseCallback{
         }
     }
 
-    private void createMsgbox(String s, boolean No){
-        log("создание сообщения");
-        // Создание диалогового окна
+    private void createMsgbox(String s, boolean No){// Создание диалогового окна
         AlertDialog.Builder builder = new AlertDialog.Builder(Input.this);
         builder.setTitle("");
         builder.setMessage(s);
-        // Кнопка "OK" для закрытия диалогового окна
-        String ok = "OK";
+        String ok = "OK";// Кнопка "OK" для закрытия диалогового окна
         if(No){
             ok = "Да";
-            // Кнопка "Нет"
             builder.setNegativeButton("Нет", new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    // Действия при нажатии "Нет"
+                @Override// Кнопка "Нет"
+                public void onClick(DialogInterface dialog, int which) {// Действия при нажатии "Нет"
                     dialog.dismiss(); // Закрыть диалоговое окно
                 }
             });
         }
-
         builder.setPositiveButton(ok, new DialogInterface.OnClickListener() {
-            @Override
+            @Override// Действия при нажатии "да\ок"
             public void onClick(DialogInterface dialog, int which) {
                 if(createNewLog == true){
                     sendCommandToService("createnewlog " + savedLogin + " " + savedPassword);
@@ -191,110 +178,18 @@ public class Input extends AppCompatActivity implements ResponseCallback{
                 dialog.dismiss(); // Закрыть диалоговое окно
             }
         });
-        // Показать диалоговое окно
         AlertDialog dialog = builder.create();
-        dialog.show();
-
+        dialog.show();// Показать диалоговое окно
     }
-    private void OpenMain(){
+    private void openMain(){
         Intent intent = new Intent(this, MainActivity.class);
         intent.putExtra("log", savedLogin);
+        unbindService(mConnection);
         startActivity(intent);
     }
-
-    Thread socketThread = new Thread(new Runnable() {
-        @Override
-        public void run() {
-            try {
-                socket = new Socket(ip, port);
-                if (socket.isConnected()) {
-                    Log.d("ddw", "connect_input");
-                }else {
-                    Log.d("ddw", "dont connect");
-                }
-                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                // потоки для ввода и вывода данных
-                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                String serverResponse = bufferedReader.readLine();
-                Log.d("ddw", serverResponse);
-                bufferedWriter.write("input "+ savedLogin +" " + savedPassword);
-                bufferedWriter.flush();
-//                do{
-                    serverResponse = bufferedReader.readLine();
-//                    socketThread.sleep(10);
-//                }while (serverResponse == null);
-                Log.d("ddw", serverResponse);
-                if(serverResponse.equals("true")){
-                    bufferedWriter.write("quit");
-                    bufferedWriter.flush();
-                    Log.d("ddw", serverResponse);
-                    SavePas(sharedPreferences.edit());
-                    OpenMain();
-                }else if(serverResponse.equals("falselog")){
-                    createNewLog=false;
-                    wait = true;
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            createMsgbox("Пользователь не найден. Вы хотите создать нового?", true);
-                        }
-                    });
-                    while (wait){
-                        socketThread.sleep(10);
-                    }
-                    if(createNewLog){
-                        Log.d("ddw", "create");
-                        bufferedWriter.write("createnewlog "+ savedLogin +" " + savedPassword);
-                        bufferedWriter.flush();
-                        serverResponse = bufferedReader.readLine();
-                        Log.d("ddw", serverResponse);
-                        if(!(serverResponse.equals("suc"))){
-
-                        }
-                        bufferedWriter.write("quit");
-                        bufferedWriter.flush();
-                        OpenMain();
-                    }
-                }else{
-                    Log.d("ddw", "falsepas2");
-                    bufferedWriter.write("quit");
-                    bufferedWriter.flush();
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            createMsgbox("Неверный пароль", false);
-                        }
-                    });
-                }
-                // Закройте соксет, когда он больше не нужен
-                socket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-                Log.d("ddw", e.getMessage());
-            } catch (InterruptedException e) {
-                Log.d("ddw", e.getMessage());
-                throw new RuntimeException(e);
-            }
-            Log.d("ddw", "exit thead");
-        }
-    });
-    private void SavePas(SharedPreferences.Editor ed){
-        //Сохранение логина и пароля
+    private void SavePas(SharedPreferences.Editor ed){//Сохранение логина и пароля
         ed.putString("login", savedLogin);
         ed.putString("password", savedPassword);
         ed.apply(); // Применить изменения
-    }
-    public void PasStar(View v){
-//        boolean isChecked = (pas.getInputType() == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-//        if(isChecked){
-//            pas.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-//            v.setSelected(true);
-//        }else{
-//            pas.setInputType(InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-//            v.setSelected(false);
-//        }
-    }
-    private void log(String s){
-        Log.d("ddw", s);
     }
 }

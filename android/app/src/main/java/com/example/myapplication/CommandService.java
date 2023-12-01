@@ -39,13 +39,8 @@ public class CommandService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d("ddw", "start service");
         executorService.execute(() -> {
-            try {
-                connectToServer();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            connectToServer();
         });
-
         return START_STICKY;
     }
 
@@ -55,7 +50,7 @@ public class CommandService extends Service {
         disconnectFromServer();
     }
 
-    private void connectToServer() throws IOException {
+    private void connectToServer() {
         try {
             socket = new Socket(SERVER_IP, SERVER_PORT);
             inputStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -63,8 +58,12 @@ public class CommandService extends Service {
             Log.d("ddw", "Connected to server");
             String response = inputStream.readLine();
             Log.d("ddw", "Received response from server: " + response);
-        }catch (Exception e){
-            Log.d("ddw", "error create soc" + e.getMessage());
+        }catch (IOException ex) {
+            Log.d("ddw", "error create soc " + ex.getMessage());
+            responseCallback.onResponseReceived("Сервер не отвечает, попробуйте позже");
+        }catch(Exception e){
+            Log.d("ddw", "error create soc " + e.getMessage());
+            responseCallback.onResponseReceived("Сервер не отвечает, попробуйте позже");
         }
 
     }

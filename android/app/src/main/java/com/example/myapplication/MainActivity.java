@@ -5,10 +5,13 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 
 import android.annotation.SuppressLint;
+import android.content.ServiceConnection;
+import android.os.IBinder;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
@@ -31,9 +34,11 @@ import android.widget.LinearLayout;
 
 import kotlin.jvm.internal.Ref;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements ResponseCallback{
     private List<Item> favor_list = new ArrayList<Item>();
     private List<Item> every_list = new ArrayList<Item>();
+    private CommandService mService;
+    private boolean mBound = false;
 
     private String ip = "82.179.140.18";
     private int port = 45127;
@@ -52,19 +57,13 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         command = "every_open";
-
         Intent intent = getIntent();
         login = intent.getStringExtra("log"); // Извлечь переданные данные
         Log.d("ddw", login);
-
         cont_s = findViewById(R.id.cont_s);
-
         rv = findViewById(R.id.recV);
-        thread = new Thread(socketThread);
-        thread.start();
-        while(flag){
-
-        }
+        intent = new Intent(this, CommandService.class);
+        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
     }
     @Override
     protected void onStart() {
@@ -256,5 +255,27 @@ public class MainActivity extends AppCompatActivity {
         p.setMargins(0,ot,0,0);
         rv.setLayoutParams(p);
     }
+    @Override
+    public void onResponseReceived(String response) {
+        Log.d("ddw", "Response from server received in activity: " + response);
+        // Обработка полученного ответа от сервера в активити
+        switch (response) {
+
+        }
+    }
+    private ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            CommandService.LocalBinder binder = (CommandService.LocalBinder) service;
+            mService = binder.getService();
+            mService.setResponseCallback(MainActivity.this);
+            Log.d("ddw", "сервис подключен");
+            mBound = true;
+        }
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            mBound = false;
+        }
+    };
 }
 
