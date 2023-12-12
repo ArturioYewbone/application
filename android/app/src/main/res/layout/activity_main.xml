@@ -54,6 +54,7 @@
             android:layout_height="60dp"
             android:layout_weight="1"
             android:background="@android:color/black"
+            android:onClick="test"
             android:paddingLeft="1sp"
             android:paddingRight="1sp"
             android:text="@string/notify" />

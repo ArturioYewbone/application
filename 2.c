@@ -232,17 +232,17 @@ int main(int argc, char **argv){
                             send(fd, everyStock[i], strlen(everyStock[i]), 0);
                             send(fd, "\n", 1, 0);
                         }
-                        sprintf(sql, "select sname from users join fav_comm on users.id = fav_comm.user_id JOIN fav ON fav_comm.fav_id = fav.id where users.id = '%d';", id_user);
-                        res = exSql(conn, sql);
-                        int rows = PQntuples(res);
-                        if(rows < 1){continue;}
-                        char temp [6];
-                        for(int i = 0; i < rows; i++){
-                            sprintf(temp, PQgetvalue(res, i, 0));
-                            printf("%s\n", temp);
-                            send(fd, temp, strlen(temp), 0);
-                            send(fd, "\n", 1, 0);
-                        }
+                        // sprintf(sql, "select sname from users join fav_comm on users.id = fav_comm.user_id JOIN fav ON fav_comm.fav_id = fav.id where users.id = '%d';", id_user);
+                        // res = exSql(conn, sql);
+                        // int rows = PQntuples(res);
+                        // if(rows < 1){continue;}
+                        // char temp [6];
+                        // for(int i = 0; i < rows; i++){
+                        //     sprintf(temp, PQgetvalue(res, i, 0));
+                        //     printf("%s\n", temp);
+                        //     send(fd, temp, strlen(temp), 0);
+                        //     send(fd, "\n", 1, 0);
+                        // }
                         send(fd, "*\n", 3, 0);
                         continue;
                     }
@@ -307,6 +307,23 @@ int main(int argc, char **argv){
                         printf("%s", sen);
                         sen_size = strlen(sen);
                         send(fd, sen, sen_size, 0);
+                        continue;
+                    }
+                    if(strncmp(command, "get_favor", 9) == 0){
+                        sprintf(sql, "select fav.sname from users join fav_comm on users.id = fav_comm.user_id join fav on fav.id = fav_comm.fav_id where users.id = '%d'", id_user);
+                        
+                        res = exSql(conn, sql);
+                        int rows = PQntuples(res);
+                        sen = "get_favor\n";
+                        send(fd, sen, strlen(sen), 0);
+                        for(int i = 0; i < rows; i++){
+                            char *sname = PQgetvalue(res, i, 0);
+                            //printf("%s\n", sname);
+                            //sen = "get_favor\n"
+                            send(fd, sname, strlen(sname), 0);
+                            send(fd, "\n", 2, 0);
+                        }
+                        send(fd, "*\n", 3, 0);
                         continue;
                     }
                 }

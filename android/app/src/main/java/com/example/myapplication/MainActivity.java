@@ -5,6 +5,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
+import android.app.ActivityManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -23,6 +24,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Objects;
 
 import android.os.Bundle;
 import android.view.View;
@@ -36,21 +38,19 @@ import kotlin.jvm.internal.Ref;
 
 public class MainActivity extends AppCompatActivity implements ResponseCallback{
     private List<Item> favor_list = new ArrayList<Item>();
+
     private List<Item> every_list = new ArrayList<Item>();
     private CommandService mService;
     private boolean mBound = false;
+    private Intent serviceIntent;
 
-    private String ip = "82.179.140.18";
-    private int port = 45127;
     LinearLayout cont_s;
     EditText search_f = null;
     String stringSearch = "";
     private Adapter a;
     String command;
-    Thread thread;
     RecyclerView rv;
     String login;
-    Boolean flag = true;
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,20 +62,24 @@ public class MainActivity extends AppCompatActivity implements ResponseCallback{
         Log.d("ddw", login);
         cont_s = findViewById(R.id.cont_s);
         rv = findViewById(R.id.recV);
-        intent = new Intent(this, CommandService.class);
-        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+        serviceIntent = new Intent(this, CommandService.class);
+        bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+
     }
     @Override
     protected void onStart() {
         super.onStart();
-        a = new Adapter(this, favor_list);
-        rv.setAdapter(a);
+        //sendCommandToService("bhb");
+        //sendCommandToService("every_open");
+        //a = new Adapter(this, favor_list, mService);
+        //rv.setAdapter(a);
         CloseS(null);
-        a.setAdapter(a);
+        //a.setAdapter(a);
     }
     public void Fav(View v){
         hideKeyboard(v);
         CloseS(v);
+        sendCommandToService("get_favor");
         updateFavorList();
     }
     public void updateFavorList(){
@@ -89,96 +93,11 @@ public class MainActivity extends AppCompatActivity implements ResponseCallback{
         a.setData(favor_list);
         a.notifyDataSetChanged();
     }
-
-    Thread socketThread = new Thread(new Runnable() {
-        @Override
-        public void run() {
-            String test = "";
-            try {
-                Socket socket = new Socket(ip, port);
-                if (socket.isConnected()) {
-                    Log.d("ddw", "connect main");
-                }else {
-                    Log.d("ddw", "dont connect main");
-                }
-                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                BufferedWriter bufferedWriter = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-                bufferedWriter.write(command);
-                bufferedWriter.flush();
-                String serverResponse = bufferedReader.readLine();
-                serverResponse = bufferedReader.readLine();
-                Log.d("ddw", serverResponse);
-                String tempServ = serverResponse.substring(0, 1);
-                List<String> temp = new ArrayList<>();
-                List<String> temp_fav = new ArrayList<>();
-                while (!tempServ.equals("*")) {
-                    //Log.d("ddw", serverResponse);
-                    temp.add(serverResponse);
-                    serverResponse = bufferedReader.readLine();
-                    tempServ = serverResponse.substring(0, 1);
-                }
-                Log.d("ddw", "list len:" + Integer.toString(temp.size()));
-                String s = temp.get(temp.size() - 2);
-                s = s.substring(0, s.length() - 2);
-                temp.set(temp.size() - 3, s);
-                serverResponse = bufferedReader.readLine();
-                while (!serverResponse.equals("*")) {
-                    //Log.d("ddw", serverResponse);
-                   // Log.d("ddw", "bool(*) " + serverResponse);
-                    temp_fav.add(serverResponse);
-                    serverResponse = bufferedReader.readLine();
-                }
-                //Log.d("ddw", "temp fav len: " + temp_fav.size());
-                for(int i = 0; i < temp.size()/2 - 1; i++){
-                    boolean f = false;
-
-                    String[] parts = temp.get(i).split(", ");
-                    String firstWord = parts[0].replaceAll("\"", ""); // Удаляем кавычки
-                    String secondWord = parts[1].replaceAll("\"", "");
-                    String fp = temp.get(temp.size() / 2 + i);
-                    if(fp.equals("null")){
-                        continue;
-                    }
-                    for(int j = 0; j < temp_fav.size(); j++){
-                        if(firstWord.equals(temp_fav.get(j))){
-                            Log.d("ddw", firstWord);
-                            f = true;
-                            temp_fav.remove(j);
-                        }
-                    }
-                    //Log.d("ddw", "s "+ secondWord + " f "+firstWord + " p " + fp);
-                    test = "s "+ secondWord + " f "+firstWord + " p " + fp;
-                    //Log.d("ddw", test);
-                    float p = Float.parseFloat(fp);
-                    Item t = new Item(secondWord, firstWord, p, f);
-                    every_list.add(t);
-                }
-                flag = false;
-                bufferedWriter.write("quit");
-                bufferedWriter.flush();
-                socket.close();
-            } catch (Exception e) {
-                Log.d("ddw", "test " + test);
-                Log.d("ddw", e.getMessage());
-
-            }
-        }
-        public void S(){
-
-        }
-    });
-    public void soc(View v) {
-
-        // Запустите поток
-        socketThread.start();
-    }
     public void Every_list(View v){
+        sendCommandToService("every_open");
         OpenS();
         a.setData(every_list);
         a.notifyDataSetChanged();
-    }
-    private void CheckFavor(){
-
     }
     private void OpenS(){
         moveRecV(0);
@@ -235,7 +154,7 @@ public class MainActivity extends AppCompatActivity implements ResponseCallback{
         if(tempA.size()==0){
             List<Item> l = new ArrayList<>();
             l.add(new Item("Ничего не найдено"));
-            a = new Adapter(this, l);
+            a = new Adapter(this, l, mService);
             rv.setAdapter(a);
         }else {
 
@@ -243,9 +162,7 @@ public class MainActivity extends AppCompatActivity implements ResponseCallback{
 
     }
 
-
     private void hideKeyboard(View view) {
-
         InputMethodManager imm = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
         imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
     }
@@ -256,11 +173,63 @@ public class MainActivity extends AppCompatActivity implements ResponseCallback{
         rv.setLayoutParams(p);
     }
     @Override
-    public void onResponseReceived(String response) {
-        Log.d("ddw", "Response from server received in activity: " + response);
-        // Обработка полученного ответа от сервера в активити
-        switch (response) {
+    public void onResponseReceivedL(List<String> response) {
+        Log.d("ddw", "Response from server received in main activity: " + response.size());
+        if(Objects.equals(response.get(0), "get_favor")){
+            //log(response.get(0));
+            response.remove(0);
+            //log("res len" + response.size());
+            for(int i = 0; i < response.size(); i++){
+                String s = response.get(i);
+                //log("favor in main " + s);
+                Item it = new Item(s);
+                favor_list.add(it);
+            }
+            sendCommandToService("every_open");
+        }else{
+            //log(response.get(0));
+            for(int i = 0; i < (response.size() / 2); i++){
+                boolean fav = false;
+                String full = response.get(i);
+                String price = response.get((response.size()/2)+i);
+                if(price.equals("null")){
+                    continue;
+                }
+                String[] parts = full.split(", ");
+                parts[0] = parts[0].substring(1, parts[0].length() - 1);
+                parts[1] = parts[1].substring(1, parts[1].length() - 1);
+                int j = favor_list.size();
+                while(j != 0){
+                    if(favor_list.get(j).getshName().equals(parts[0])){
+                        fav = true;
+                        favor_list.remove(j);
+                        break;
+                    }
+                    j--;
+                }
+                //log(parts[0] + ":" + parts[1] + " " + price);
+                Item it = new Item(parts[0], parts[1], Float.parseFloat(price), fav);
+                every_list.add(it);
+            }
+        }
 
+    }
+    @Override
+    public void onResponseReceived(String response) {}
+    public void sendCommandToService(String s) {
+        if (mBound) {// отправки команды из активити в сервис
+            mService.sendCommand(s);
+        }
+    }
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        log("destroy in main activity");
+        if (mBound) {
+            log("stop service in main activity");
+            unbindService(mConnection);
+            mBound = false;
+            stopService(serviceIntent);
         }
     }
     private ServiceConnection mConnection = new ServiceConnection() {
@@ -268,14 +237,31 @@ public class MainActivity extends AppCompatActivity implements ResponseCallback{
         public void onServiceConnected(ComponentName name, IBinder service) {
             CommandService.LocalBinder binder = (CommandService.LocalBinder) service;
             mService = binder.getService();
-            mService.setResponseCallback(MainActivity.this);
-            Log.d("ddw", "сервис подключен");
             mBound = true;
+            mService.setResponseCallback(MainActivity.this);
+            mService.sendCommand("get_favor");
+            if (mService != null) {
+                log("сервис бинд мэйн");
+            }
         }
+
         @Override
         public void onServiceDisconnected(ComponentName name) {
+            log("serv disconnect in main activity in mConnection");
             mBound = false;
         }
     };
+    private void log(String s){
+        Log.d("ddw", s);
+    }
+
+    public void test(View v){
+        log("click");
+        if(mService == null){
+            log("serbice d main");
+        }
+        log("mbound " + (mBound));
+        mService.sendCommand("asdsa");
+    }
 }
 

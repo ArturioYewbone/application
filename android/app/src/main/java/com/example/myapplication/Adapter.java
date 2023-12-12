@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.ImageButton;
 import android.widget.PopupMenu;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -29,16 +30,15 @@ public class Adapter extends RecyclerView.Adapter<Adapter.ViewHolder> {
     private LayoutInflater inflater;
     private List<Item> data;
     private Adapter a;
-    String command;
-    MyThread t = new MyThread("");
+    private CommandService mService;
 
-    public Adapter(Context context, List<Item> list) {
+    public Adapter(Context context, List<Item> list, CommandService ser) {
         this.inflater = LayoutInflater.from(context);
         this.data = list;
+        this.mService = ser;
     }
     public void setAdapter(Adapter aa){
         this.a = aa;
-        t.start();
     }
     public void setData(List<Item> l){
         this.data = l;
@@ -86,17 +86,11 @@ public class Adapter extends RecyclerView.Adapter<Adapter.ViewHolder> {
                         String ss = menuItem.getTitle().toString();
                         if(ss == "Добавить в избранное"){
                             data.get(position).setFavor(true);
-                            t.UpdateData(data.get(position).getshName());
-                            t.UpdateCommand("add_favor");
+                            mService.sendCommand("add_favor " + data.get(position).getshName());
                         }else{
                             data.get(position).setFavor(false);
+                            mService.sendCommand("rem_favor " + data.get(position).getshName());
                             data.remove(position);
-                            t.UpdateData(data.get(position).getshName());
-                            t.UpdateCommand("rem_favor");
-                            //Thread t = new Thread(socketThread);
-
-                            //t.start();
-                            //a.notifyItemRemoved(position);
                         }
                         Log.d("ddw", "" + data.get(position).getFavor() + " pos:" + position);
                         return true;

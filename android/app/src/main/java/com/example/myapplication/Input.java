@@ -19,49 +19,42 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageButton;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.net.Socket;
+import java.util.List;
 import java.util.Objects;
 
 public class Input extends AppCompatActivity implements ResponseCallback{
-    private String ip = "82.179.140.18";
-    private int port = 45127;
     private EditText log;
     private EditText pas;
     private String savedLogin;
     private String savedPassword;
     boolean createNewLog = false;
-    boolean wait;
     private SharedPreferences sharedPreferences;
-    private Socket socket;
     private static final long INTERVAL = 15 * 60 * 1000; // 15 минут в миллисекундах
     private CommandService mService;
     private boolean mBound = false;
-
-    private ServiceConnection mConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            CommandService.LocalBinder binder = (CommandService.LocalBinder) service;
-            mService = binder.getService();
-            mService.setResponseCallback(Input.this);
-            Log.d("ddw", "сервис подключен");
-            mBound = true;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            mBound = false;
-        }
-    };
-
+    private Intent serviceIntent;
+    boolean openMain = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
+//        MyApplication.connection = new ServiceConnection() {
+//            @Override
+//            public void onServiceConnected(ComponentName name, IBinder service) {
+//                CommandService.LocalBinder binder = (CommandService.LocalBinder) service;
+//                mService = binder.getService();
+//
+//                Log.d("ddw", "сервис подключен");
+//                mBound = true;
+//            }
+//            @Override
+//            public void onServiceDisconnected(ComponentName name) {
+//                mBound = false;
+//            }
+//        };
+        //mService = new CommandService();
+        //mService.setResponseCallback(Input.this);
+        //mConnection = MyApplication.connection;
+        //MyApplication.commandService = mService;
         try{
             setContentView(R.layout.activity_input);
             log = findViewById(R.id.log);
@@ -82,18 +75,17 @@ public class Input extends AppCompatActivity implements ResponseCallback{
                     return false;
                 }
             });
-            Intent intent = new Intent(this, CommandService.class);
-            bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
-            startService(intent);
+            serviceIntent = new Intent(this, CommandService.class);
+            startService(serviceIntent);
+            bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
+
             sharedPreferences = getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
             savedLogin = sharedPreferences.getString("login", null);// Попытка получения сохраненного логина и пароля
             savedPassword = sharedPreferences.getString("password", null);
             if (savedLogin != null && savedPassword != null) {// Автоматически заполните поля ввода
-                if(false){
-                    log.setText(savedLogin);
-                    pas.setText(savedPassword);
-                    openMain();
-                }
+                log.setText(savedLogin);
+                pas.setText(savedPassword);
+                sendCommandToService("input " + savedLogin + " " + savedPassword);
             }
         }catch (Exception e){
             Log.d("ddw", e.getMessage());
@@ -102,10 +94,14 @@ public class Input extends AppCompatActivity implements ResponseCallback{
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        Log.d("ddw", "onDestroy: input");
         if (mBound) {
-            sendCommandToService("quit");
-            unbindService(mConnection);
-            mBound = false;
+            if(!openMain){
+                Log.d("ddw", "close service in input");
+                sendCommandToService("quit");
+                mBound = false;
+                stopService(serviceIntent);
+            }
         }
     }
     public void sendCommandToService(String s) {
@@ -113,10 +109,11 @@ public class Input extends AppCompatActivity implements ResponseCallback{
             mService.sendCommand(s);
         }
     }
-
+    @Override
+    public void onResponseReceivedL(List<String> response) {}
     @Override
     public void onResponseReceived(String response) {
-        Log.d("ddw", "Response from server received in activity: " + response);
+        //Log.d("ddw", "Response from server received in activity: " + response);
         switch (response) {// Обработка полученного ответа от сервера в активити
             case "Сервер не отвечает, попробуйте позже":
                 createMsgbox(response, false);
@@ -182,14 +179,35 @@ public class Input extends AppCompatActivity implements ResponseCallback{
         dialog.show();// Показать диалоговое окно
     }
     private void openMain(){
-        Intent intent = new Intent(this, MainActivity.class);
+        Intent intent = new Intent(Input.this, MainActivity.class);
         intent.putExtra("log", savedLogin);
         unbindService(mConnection);
+        openMain = true;
         startActivity(intent);
+        finish();
     }
     private void SavePas(SharedPreferences.Editor ed){//Сохранение логина и пароля
         ed.putString("login", savedLogin);
         ed.putString("password", savedPassword);
         ed.apply(); // Применить изменения
     }
+    private ServiceConnection mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            CommandService.LocalBinder binder = (CommandService.LocalBinder) service;
+            mService = binder.getService();
+            mBound = true;
+            mService.setResponseCallback(Input.this);
+            if (mService != null) {
+                // Вызываем метод вашего сервиса
+                Log.d("ddw", "сервис в инпут запущен");
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.d("ddw", "onServiceDisconnected in input");
+            mBound = false;
+        }
+    };
 }
