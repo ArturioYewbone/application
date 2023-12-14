@@ -53,7 +53,11 @@ public class Adapter extends RecyclerView.Adapter<Adapter.ViewHolder> {
     @Override
     public void onBindViewHolder(ViewHolder holder, int position) {
         Item item = data.get(position);
-
+        if(item.getshName().equals("Ничего не найдено")){
+            holder.leftText.setText(item.getshName());
+            holder.dotsMenu.setVisibility(View.INVISIBLE);
+            return;
+        }
         holder.leftText.setText(item.getName() + " (" + item.getshName() + ")");
         holder.rightText.setText(String.valueOf(item.getPrice()));
 
@@ -84,13 +88,15 @@ public class Adapter extends RecyclerView.Adapter<Adapter.ViewHolder> {
                     int temp = menuItem.getItemId();
                     if(temp == R.id.menu_item2){//избранное
                         String ss = menuItem.getTitle().toString();
-                        if(ss == "Добавить в избранное"){
+                        if(ss.equals("Добавить в избранное")){
                             data.get(position).setFavor(true);
+                            //Log.d("ddw","в избранное добавить " + data.get(position).getshName() +":" + data.get(position).getName());
                             mService.sendCommand("add_favor " + data.get(position).getshName());
                         }else{
                             data.get(position).setFavor(false);
                             mService.sendCommand("rem_favor " + data.get(position).getshName());
-                            data.remove(position);
+
+                            //data.remove(position);
                         }
                         Log.d("ddw", "" + data.get(position).getFavor() + " pos:" + position);
                         return true;

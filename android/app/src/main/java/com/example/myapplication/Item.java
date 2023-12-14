@@ -5,9 +5,9 @@ public class Item {
     private String name;
     private float price;
     private boolean favor;
-    public Item(String sn, String n, float p, boolean f){
-        this.shName = n;
-        this.name = sn;
+    public Item(String n, String sn, float p, boolean f){
+        this.shName = sn;
+        this.name = n;
         this.price = p;
         this.favor = f;
     }

@@ -37,56 +37,42 @@ public class Input extends AppCompatActivity implements ResponseCallback{
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-//        MyApplication.connection = new ServiceConnection() {
-//            @Override
-//            public void onServiceConnected(ComponentName name, IBinder service) {
-//                CommandService.LocalBinder binder = (CommandService.LocalBinder) service;
-//                mService = binder.getService();
-//
-//                Log.d("ddw", "сервис подключен");
-//                mBound = true;
-//            }
-//            @Override
-//            public void onServiceDisconnected(ComponentName name) {
-//                mBound = false;
-//            }
-//        };
-        //mService = new CommandService();
-        //mService.setResponseCallback(Input.this);
-        //mConnection = MyApplication.connection;
-        //MyApplication.commandService = mService;
         try{
             setContentView(R.layout.activity_input);
             log = findViewById(R.id.log);
             pas = findViewById(R.id.pas);
-            final ImageButton eye = findViewById(R.id.imageBut);
+            ImageButton eye = findViewById(R.id.imageBut);
+            eye.setImageResource(R.drawable.eye_selector);
             pas.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-            eye.setSelected(true);
             eye.setOnTouchListener(new View.OnTouchListener() {
                 @Override
                 public boolean onTouch(View view, MotionEvent event) {
-                    if (event.getAction() == MotionEvent.ACTION_UP) {
-                        eye.setSelected(true);
-                        pas.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-                    } else if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                        pas.setInputType(InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
-                        eye.setSelected(false);
+                    switch (event.getAction()) {
+                        case MotionEvent.ACTION_DOWN:
+                            eye.setSelected(true);
+                            pas.setInputType(InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD);
+                            break;
+                        case MotionEvent.ACTION_UP:
+                        case MotionEvent.ACTION_CANCEL:
+                            eye.setSelected(false);
+                            pas.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                            break;
                     }
                     return false;
                 }
             });
-            serviceIntent = new Intent(this, CommandService.class);
-            startService(serviceIntent);
-            bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
-
             sharedPreferences = getSharedPreferences("MyAppPreferences", Context.MODE_PRIVATE);
             savedLogin = sharedPreferences.getString("login", null);// Попытка получения сохраненного логина и пароля
             savedPassword = sharedPreferences.getString("password", null);
+            serviceIntent = new Intent(this, CommandService.class);
+            startService(serviceIntent);
+            bindService(serviceIntent, mConnection, Context.BIND_AUTO_CREATE);
             if (savedLogin != null && savedPassword != null) {// Автоматически заполните поля ввода
                 log.setText(savedLogin);
                 pas.setText(savedPassword);
                 sendCommandToService("input " + savedLogin + " " + savedPassword);
             }
+
         }catch (Exception e){
             Log.d("ddw", e.getMessage());
         }
@@ -201,6 +187,7 @@ public class Input extends AppCompatActivity implements ResponseCallback{
             if (mService != null) {
                 // Вызываем метод вашего сервиса
                 Log.d("ddw", "сервис в инпут запущен");
+
             }
         }
 

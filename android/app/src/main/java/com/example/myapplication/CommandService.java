@@ -45,10 +45,6 @@ public class CommandService extends Service {
         });
         return START_STICKY;
     }
-    public void stop(){
-        disconnectFromServer();
-        stopSelf();
-    }
     @Override
     public void onDestroy() {
         super.onDestroy();
@@ -64,7 +60,10 @@ public class CommandService extends Service {
             inputStream = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             outputStream = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
             Log.d("ddw", "Connected to server");
-            String response = inputStream.readLine();
+            String response = "";
+            if(inputStream != null){
+                 response = inputStream.readLine();
+            }
             Log.d("ddw", "Received response from server: " + response);
         }catch (IOException ex) {
             Log.d("ddw", "error create soc " + ex.getMessage());
@@ -94,7 +93,6 @@ public class CommandService extends Service {
                     if(command.equals("every_open")){
                         String response = inputStream.readLine();
                         //response = inputStream.readLine();
-
                         String tempServ = response.substring(0, 1);
                         Log.d("ddw", "Received response from server: " + response);
                         List<String> temp = new ArrayList<>();
@@ -105,20 +103,21 @@ public class CommandService extends Service {
                             tempServ = response.substring(0, 1);
                         }
                         Log.d("ddw", "list len:" + Integer.toString(temp.size()));
-                        //String s = temp.get(temp.size() - 2);
-                        //s = s.substring(0, s.length() - 2);
+                        String s = temp.get(temp.size() - 2);
+                        s = s.substring(0, s.length() - 2);
                         //Log.d("ddw", s);
-                        //temp.set(temp.size() - 3, s);
+                        temp.set(temp.size() - 2, s);
                         //response = inputStream.readLine();
                         //Log.d("ddw", response);
                         responseCallback.onResponseReceivedL(temp);
                     }else if(command.equals("get_favor")){
                         String response = inputStream.readLine();
                         List<String> temp = new ArrayList<>();
-
+                        Log.d("ddw", response + " " + response.length());
                         while(!response.substring(response.length() - 1).equals("*")){
                             temp.add(response);
                             response = inputStream.readLine();
+                            Log.d("ddw", response+ " " + response.length());
                         }
                         //Log.d("ddw", "favor:" + temp.size());
                         responseCallback.onResponseReceivedL(temp);
@@ -160,5 +159,8 @@ public class CommandService extends Service {
             Log.d("ddw", e.getMessage());
             e.printStackTrace();
         }
+    }
+    public void stop(){
+        stopSelf();
     }
 }

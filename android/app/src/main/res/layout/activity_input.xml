@@ -55,6 +55,7 @@
         android:layout_marginStart="5dp"
         android:layout_marginTop="64dp"
         android:background="@drawable/eye_selector"
+        android:src="@drawable/eye_selector"
         android:onClick="PasStar"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
